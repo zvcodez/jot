@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0c0a14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Jot">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<title>Jot</title>
+<style>
+  :root{
+    --bg:#0c0a14; --panel:#161326; --panel2:#1f1b33; --line:#2b2544;
+    --txt:#f3f0ff; --mut:#a49cc4; --dim:#6d6690;
+    --pink:#ff4d8d; --purple:#8b5cf6; --cyan:#22d3ee; --green:#34d399; --amber:#fbbf24;
+    --reminder:#fbbf24; --idea:#8b5cf6; --note:#22d3ee;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{background:radial-gradient(120% 50% at 50% 0%,#1a1430 0%,var(--bg) 55%);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,sans-serif;-webkit-font-smoothing:antialiased;
+    max-width:560px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;overflow:hidden}
+  button{font-family:inherit;cursor:pointer;border:0;background:none;color:inherit}
+  ::selection{background:var(--pink);color:#fff}
+
+  header{padding:calc(16px + env(safe-area-inset-top)) 16px 10px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+  .logo{font-weight:900;font-size:21px;letter-spacing:-.5px;background:linear-gradient(110deg,var(--pink),var(--purple),var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+  header .spacer{flex:1}
+  .iconbtn{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--mut);background:var(--panel);border:1px solid var(--line)}
+  .iconbtn.on{color:var(--green);border-color:rgba(52,211,153,.4)}
+  .iconbtn svg{width:16px;height:16px}
+
+  .searchwrap{padding:0 16px 10px;flex-shrink:0}
+  .searchwrap input{width:100%;background:var(--panel);border:1px solid var(--line);color:var(--txt);font-size:14px;padding:9px 12px;border-radius:10px}
+  .searchwrap input:focus{outline:0;border-color:var(--purple)}
+
+  .filters{display:flex;gap:7px;padding:0 16px 12px;flex-shrink:0;overflow-x:auto}
+  .chip{flex-shrink:0;display:flex;align-items:center;gap:6px;background:var(--panel);border:1.5px solid var(--line);border-radius:999px;padding:7px 13px;font-weight:700;font-size:12.5px;color:var(--mut)}
+  .chip .n{color:var(--dim);font-size:11px}
+  .chip.on{color:var(--txt);border-color:var(--c,var(--purple));background:color-mix(in srgb, var(--c,var(--purple)) 16%, var(--panel))}
+
+  main{flex:1;overflow-y:auto;padding:0 16px 12px;display:flex;flex-direction:column;gap:9px;-webkit-overflow-scrolling:touch}
+  .empty{color:var(--dim);text-align:center;padding:60px 20px;font-size:13.5px;line-height:1.6}
+  .empty b{color:var(--mut);display:block;font-size:15px;margin-bottom:6px}
+
+  .item{display:flex;align-items:flex-start;gap:10px;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--c,var(--line));border-radius:12px;padding:11px 12px}
+  .item .tag{width:22px;height:22px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;margin-top:1px;background:color-mix(in srgb, var(--c,var(--purple)) 20%, transparent)}
+  .item .body{flex:1;min-width:0}
+  .item .txt{font-size:14.5px;line-height:1.4;word-wrap:break-word;white-space:pre-wrap}
+  .item.done .txt{text-decoration:line-through;color:var(--dim)}
+  .item .meta{font-size:11px;color:var(--dim);margin-top:4px;font-weight:600}
+  .item .actions{display:flex;gap:4px;flex-shrink:0}
+  .item .actions button{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--dim)}
+  .item .actions button:active{background:var(--panel2)}
+  .item .actions svg{width:14px;height:14px}
+
+  .composer{flex-shrink:0;padding:10px 16px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(0deg, var(--bg) 60%, transparent);border-top:1px solid var(--line)}
+  .tagpicker{display:flex;gap:7px;margin-bottom:8px}
+  .tagbtn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:var(--panel);border:1.5px solid var(--line);border-radius:10px;padding:8px 6px;font-weight:800;font-size:12px;color:var(--mut)}
+  .tagbtn.sel{color:var(--txt);border-color:var(--c);background:color-mix(in srgb, var(--c) 18%, var(--panel))}
+  .inputrow{display:flex;gap:8px;align-items:flex-end}
+  textarea{flex:1;resize:none;width:100%;background:var(--panel2);border:1.5px solid var(--line);color:var(--txt);font-size:16px;font-family:inherit;padding:12px 14px;border-radius:16px;max-height:120px;line-height:1.35}
+  textarea:focus{outline:0;border-color:var(--c,var(--purple))}
+  .sendbtn{width:46px;height:46px;border-radius:50%;background:linear-gradient(110deg,var(--pink),var(--purple));display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff}
+  .sendbtn:disabled{opacity:.35}
+  .sendbtn svg{width:19px;height:19px}
+
+  .modal-bg{position:fixed;inset:0;background:rgba(5,4,10,.7);display:flex;align-items:flex-end;justify-content:center;z-index:20;backdrop-filter:blur(2px)}
+  .modal{width:100%;max-width:560px;background:var(--panel);border:1px solid var(--line);border-radius:20px 20px 0 0;padding:20px 18px calc(22px + env(safe-area-inset-bottom));max-height:80vh;overflow-y:auto}
+  .modal h3{font-size:16px;margin-bottom:12px}
+  .modal p{font-size:12.5px;color:var(--mut);line-height:1.55;margin-bottom:10px}
+  .modal a{color:var(--cyan)}
+  .field label{font-size:11px;font-weight:700;color:var(--dim);display:block;margin-bottom:5px}
+  .field input{width:100%;background:var(--panel2);border:1.5px solid var(--line);color:var(--txt);font-size:14px;padding:11px 12px;border-radius:10px;font-family:monospace}
+  .field input:focus{outline:0;border-color:var(--purple)}
+  .sync-status{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--mut);margin:12px 0}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--dim)}
+  .dot.on{background:var(--green)}
+  .dot.err{background:var(--pink)}
+  .sync-err{background:rgba(255,77,141,.12);color:#ffb3cd;border:1px solid rgba(255,77,141,.3);border-radius:10px;padding:9px 11px;font-size:12px;margin-bottom:10px}
+  .modal-actions{display:flex;gap:8px;margin-top:14px}
+  .btn{flex:1;padding:12px;border-radius:12px;font-weight:800;font-size:14px;text-align:center}
+  .btn.primary{background:linear-gradient(110deg,var(--pink),var(--purple));color:#fff}
+  .btn.ghost{background:var(--panel2);color:var(--mut);border:1px solid var(--line)}
+  .btn:disabled{opacity:.5}
+  .closebar{width:36px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 14px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Jot</div>
+  <div class="spacer"></div>
+  <button class="iconbtn" id="syncBtn" title="Cross-device sync"></button>
+</header>
+
+<div class="searchwrap">
+  <input type="text" id="search" placeholder="Search…" autocomplete="off">
+</div>
+
+<div class="filters" id="filters"></div>
+
+<main id="list"></main>
+
+<div class="composer">
+  <div class="tagpicker" id="tagpicker"></div>
+  <div class="inputrow">
+    <textarea id="composerInput" rows="1" placeholder="Jot something down…" autocomplete="off" autocapitalize="sentences"></textarea>
+    <button class="sendbtn" id="sendBtn" title="Add">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+    </button>
+  </div>
+</div>
+
+<script src="./sync.js"></script>
+<script>
+(() => {
+  const TYPES = {
+    reminder: { label: 'Reminder', icon: '🔔', color: 'var(--reminder)' },
+    idea:     { label: 'Idea',     icon: '💡', color: 'var(--idea)' },
+    note:     { label: 'Note',     icon: '📝', color: 'var(--note)' },
+  };
+  const STORE_KEY = 'jot:items';
+
+  const load = () => { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; } catch { return []; } };
+  const save = (items) => {
+    localStorage.setItem(STORE_KEY, JSON.stringify(items));
+    window.JotSync && window.JotSync.markDirty();
+  };
+
+  let items = load();
+  let filter = 'all';
+  let query = '';
+  let pickedType = localStorage.getItem('jot:lastType') || 'note';
+
+  const $ = (sel) => document.querySelector(sel);
+  const listEl = $('#list');
+  const filtersEl = $('#filters');
+  const tagpickerEl = $('#tagpicker');
+  const input = $('#composerInput');
+  const sendBtn = $('#sendBtn');
+  const searchEl = $('#search');
+
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+  function ago(iso) {
+    const diff = Date.now() - new Date(iso).getTime();
+    if (diff < 60000) return 'just now';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
+    return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  function renderTagpicker() {
+    tagpickerEl.innerHTML = Object.entries(TYPES).map(([key, t]) => `
+      <button class="tagbtn ${pickedType === key ? 'sel' : ''}" data-type="${key}" style="--c:${t.color}">
+        <span>${t.icon}</span><span>${t.label}</span>
+      </button>`).join('');
+    tagpickerEl.querySelectorAll('.tagbtn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        pickedType = btn.dataset.type;
+        localStorage.setItem('jot:lastType', pickedType);
+        renderTagpicker();
+      });
+    });
+  }
+
+  function renderFilters() {
+    const counts = { all: items.length, reminder: 0, idea: 0, note: 0 };
+    items.forEach((i) => { counts[i.type] = (counts[i.type] || 0) + 1; });
+    const chips = [{ key: 'all', label: 'All', icon: '', color: 'var(--purple)' },
+      ...Object.entries(TYPES).map(([key, t]) => ({ key, label: t.label, icon: t.icon, color: t.color }))];
+    filtersEl.innerHTML = chips.map((c) => `
+      <button class="chip ${filter === c.key ? 'on' : ''}" data-filter="${c.key}" style="--c:${c.color}">
+        ${c.icon ? `<span>${c.icon}</span>` : ''}<span>${c.label}</span><span class="n">${counts[c.key] || 0}</span>
+      </button>`).join('');
+    filtersEl.querySelectorAll('.chip').forEach((btn) => {
+      btn.addEventListener('click', () => { filter = btn.dataset.filter; render(); });
+    });
+  }
+
+  function renderList() {
+    let shown = items.filter((i) => filter === 'all' || i.type === filter);
+    if (query.trim()) {
+      const q = query.trim().toLowerCase();
+      shown = shown.filter((i) => i.text.toLowerCase().includes(q));
+    }
+    shown = shown.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+    if (shown.length === 0) {
+      listEl.innerHTML = `<div class="empty"><b>Nothing here yet</b>${query ? 'No matches for your search.' : 'Type below and tap a tag to capture your first one.'}</div>`;
+      return;
+    }
+    listEl.innerHTML = shown.map((i) => {
+      const t = TYPES[i.type];
+      return `
+      <div class="item ${i.done ? 'done' : ''}" style="--c:${t.color}" data-id="${i.id}">
+        <div class="tag" title="${t.label}">${t.icon}</div>
+        <div class="body">
+          <div class="txt">${escapeHtml(i.text)}</div>
+          <div class="meta">${ago(i.createdAt)}</div>
+        </div>
+        <div class="actions">
+          ${i.type === 'reminder' ? `<button class="doneBtn" title="${i.done ? 'Mark not done' : 'Mark done'}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </button>` : ''}
+          <button class="delBtn" title="Delete">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>`;
+    }).join('');
+
+    listEl.querySelectorAll('.item').forEach((el) => {
+      const id = el.dataset.id;
+      const doneBtn = el.querySelector('.doneBtn');
+      const delBtn = el.querySelector('.delBtn');
+      if (doneBtn) doneBtn.addEventListener('click', () => toggleDone(id));
+      delBtn.addEventListener('click', () => removeItem(id));
+    });
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function render() {
+    renderFilters();
+    renderList();
+  }
+
+  function addItem() {
+    const text = input.value.trim();
+    if (!text) return;
+    items.push({ id: uid(), type: pickedType, text, done: false, createdAt: new Date().toISOString() });
+    save(items);
+    input.value = '';
+    autoGrow();
+    render();
+  }
+
+  function toggleDone(id) {
+    const it = items.find((i) => i.id === id);
+    if (it) { it.done = !it.done; save(items); render(); }
+  }
+
+  function removeItem(id) {
+    items = items.filter((i) => i.id !== id);
+    save(items);
+    render();
+  }
+
+  function autoGrow() {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+  }
+
+  input.addEventListener('input', autoGrow);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addItem(); }
+  });
+  sendBtn.addEventListener('click', addItem);
+  searchEl.addEventListener('input', (e) => { query = e.target.value; renderList(); });
+
+  // Pull external (synced) changes into the live view.
+  window.addEventListener('jot:external-update', (e) => {
+    items = e.detail || [];
+    render();
+  });
+
+  renderTagpicker();
+  render();
+
+  // --- Sync UI wiring ---
+  const syncBtn = $('#syncBtn');
+  syncBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h.79a4.5 4.5 0 1 1 0 9Z"/></svg>`;
+  syncBtn.addEventListener('click', () => window.JotSync && window.JotSync.openPanel());
+
+  if (window.JotSync) {
+    window.JotSync.init({
+      getItems: () => items,
+      setItems: (next) => { items = next; render(); },
+      onStatus: (s) => {
+        syncBtn.classList.toggle('on', s.state === 'idle' && s.enabled);
+        syncBtn.title = s.enabled ? (s.state === 'syncing' ? 'Syncing…' : 'Synced') : 'Cross-device sync (off)';
+      },
+    });
+  }
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+  }
+})();
+</script>
+</body>
+</html>
