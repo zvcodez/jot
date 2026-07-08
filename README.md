@@ -26,8 +26,13 @@ Two pages, switched via the floating pill at the top:
   itself (no manual tagging needed) and shows a toast confirming the tag;
   tap the toast to cycle to a different tag if it guessed wrong.
 - **Log** (list icon) — everything you've captured, searchable and
-  filterable by type with live counts. Reminders get a checkmark to mark
-  done (strikes through); any item can be deleted with the ✕.
+  filterable by type with live counts, grouped by day (or by due date when
+  the Reminder filter is active — Today / Tomorrow / This week / Later /
+  No due date, soonest first; done reminders sink to a Done group).
+  Reminders get a checkmark to mark done (strikes through). Tap an item's
+  text to edit it inline. Swipe an item left to reveal delete; tap it to
+  soft-delete (undo toast, or restore later from **Recently deleted** at
+  the bottom of the list — kept 30 days before permanent removal).
 
 ### How the auto-tagging works
 
