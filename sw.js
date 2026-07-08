@@ -1,10 +1,11 @@
 // Service worker for Jot. Network-first for app assets so deployed updates
 // show up immediately when online, with a cached fallback for offline use.
-const CACHE = 'jot-v1';
+const CACHE = 'jot-v2';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
+  './classify.js',
   './sync.js',
   './icons/icon.svg',
 ];

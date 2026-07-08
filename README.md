@@ -4,7 +4,7 @@ A single all-in-one inbox for reminders, Claude ideas, and quick notes —
 one capture box instead of three separate iPhone apps.
 
 Built with **no build step**: plain HTML/CSS/vanilla JS, no framework, no
-bundler, no npm. Same buildless philosophy as [neil-ai-hub](../neil-ai-hub).
+bundler, no npm.
 
 ## Run it locally
 
@@ -13,19 +13,49 @@ cd jot
 python3 -m http.server 5173
 ```
 
-Open <http://localhost:5173>. (Service worker / ES module bits need `http://`,
-not `file://`.)
+Open <http://localhost:5173>. (Service worker bits need `http://`, not
+`file://`.)
 
 ## Using it
 
-- Type in the bottom bar, tap **Reminder / Idea / Note** to save with that tag
-  (or just hit Enter — defaults to whichever tag you last used).
-- Filter chips at the top switch between All / Reminders / Ideas / Notes, each
-  with a live count. The search box filters by text.
-- Reminders get a checkmark to mark done (strikes through). Any item can be
-  deleted with the ✕.
-- Everything saves instantly to **localStorage** — works offline, no login
-  needed for single-device use.
+Two pages, switched via the floating pill at the top:
+
+- **Capture** (home) — a rotating prompt ("What's on your mind?", "Quick
+  thought?", …) and a single input. Type your thought and hit Enter — Jot
+  guesses whether it's a **Reminder**, **Idea**, or **Note** from the text
+  itself (no manual tagging needed) and shows a toast confirming the tag;
+  tap the toast to cycle to a different tag if it guessed wrong.
+- **Log** (list icon) — everything you've captured, searchable and
+  filterable by type with live counts. Reminders get a checkmark to mark
+  done (strikes through); any item can be deleted with the ✕.
+
+### How the auto-tagging works
+
+Entirely local pattern-matching, no server or API call:
+
+- If the text contains a date/time ("**around 5PM**", "tomorrow at 9am",
+  "in 30 minutes", "friday", "tonight", "noon"…) it's tagged **Reminder**
+  with that due time parsed out, e.g. "charge my laptop around 5PM" →
+  Reminder, due today 5:00 PM.
+- Otherwise, reminder-ish verbs (call, buy, pay, renew, schedule, charge,
+  appointment, deadline…) → **Reminder** with no due time; idea-ish words
+  (idea, claude, build, app, feature, prototype…) → **Idea**; anything else
+  → **Note**.
+- It's a heuristic, not real AI — tap the capture toast to correct a wrong
+  guess. See `classify.js`.
+
+### Reminder notifications
+
+Reminders with a parsed due time request notification permission and
+schedule a local alert via the service worker. This fires reliably while
+the app is open, backgrounded, or reopened after the due time passed (you
+get a "missed reminder" catch-up alert). It will **not** fire if the app/
+browser was fully force-quit the whole time — that needs real Web Push
+(VAPID keys + a server-side scheduler), which is a deliberate follow-up,
+not built yet.
+
+Everything saves instantly to **localStorage** — works offline, no login
+needed for single-device use.
 
 ## Cross-device sync (optional)
 
@@ -75,9 +105,10 @@ personal data. Your actual items live in the separate **private**
 
 ```
 jot/
-├─ index.html      # the whole app: markup, styles, vanilla JS logic
+├─ index.html      # the whole app: markup, styles, vanilla JS logic (both pages)
+├─ classify.js      # local type classification + date/time parsing (no server)
 ├─ sync.js          # optional cross-device sync engine (GitHub Contents API)
 ├─ manifest.json    # PWA manifest (Add to Home Screen)
-├─ sw.js            # service worker (offline app shell)
+├─ sw.js            # service worker (offline app shell + notification display)
 └─ icons/           # app icon (svg + 192/512 png)
 ```
