@@ -193,6 +193,7 @@
 
 <script src="./classify.js"></script>
 <script src="./sync.js"></script>
+<script src="./push.js"></script>
 <script>
 (() => {
   const TYPES = {
@@ -294,6 +295,7 @@
     if (it.type !== 'reminder') it.dueAt = null;
     save(items);
     showToast(it.type, it.dueAt);
+    window.JotPush && window.JotPush.syncReminder(it);
     render();
   }
 
@@ -310,6 +312,7 @@
     pendingId = item.id;
     showToast(type, dueAt);
     scheduleNotification(item);
+    window.JotPush && window.JotPush.syncReminder(item);
     rollPrompt();
     render();
   }
@@ -477,7 +480,7 @@
 
   function toggleDone(id) {
     const it = items.find((i) => i.id === id);
-    if (it) { it.done = !it.done; save(items); renderList(); }
+    if (it) { it.done = !it.done; save(items); window.JotPush && window.JotPush.syncReminder(it); renderList(); }
   }
 
   function startEdit(id) {
@@ -492,6 +495,7 @@
     text = text.trim();
     if (it && text) it.text = text;
     save(items);
+    if (it) window.JotPush && window.JotPush.syncReminder(it);
     renderList();
   }
 
@@ -503,6 +507,7 @@
     it.deletedAt = new Date().toISOString();
     swipeOpenId = null;
     save(items);
+    window.JotPush && window.JotPush.syncReminder(it);
     render();
     showDeleteToast(id);
   }
@@ -519,7 +524,7 @@
 
   function restoreItem(id) {
     const it = items.find((i) => i.id === id);
-    if (it) { it.deletedAt = null; save(items); render(); }
+    if (it) { it.deletedAt = null; save(items); window.JotPush && window.JotPush.syncReminder(it); render(); }
   }
 
   function purgeDeleted(id) {
@@ -629,6 +634,7 @@
     }
     item.notified = true;
     save(items);
+    window.JotPush && window.JotPush.syncReminder(item);
   }
 
   function scheduleNotification(item) {
@@ -680,6 +686,7 @@
   rollPrompt();
   render();
   sweepReminders();
+  window.JotPush && window.JotPush.ensureSubscribed();
   setTimeout(() => input.focus(), 200);
 
   if ('serviceWorker' in navigator) {
