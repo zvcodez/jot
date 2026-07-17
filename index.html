@@ -19,7 +19,17 @@
     --grad1:#FF6B4A; --grad2:#8B5CF6;
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+  .orientlock{display:none}
+  @media (orientation:landscape){
+    .orientlock{position:fixed;inset:0;z-index:100;background:var(--bg);display:flex;flex-direction:column;
+      align-items:center;justify-content:center;text-align:center;padding:40px}
+    .pageswitch,.page,.toast{display:none !important}
+  }
+  .orientlock .emoji{font-size:40px}
+  .orientlock b{display:block;font-size:17px;margin-top:14px;color:var(--ink)}
+  .orientlock p{font-size:13px;color:var(--ink-soft);margin-top:6px}
   body{
     background:
       radial-gradient(50% 30% at 10% 22%, rgba(255,107,74,.13), transparent 68%),
@@ -118,8 +128,8 @@
   .item .edittxt:focus{outline:0;border-color:var(--grad2)}
   .item .meta{font-size:11.5px;color:var(--ink-soft);margin-top:5px;font-weight:700}
   .item .due{display:inline-flex;align-items:center;gap:4px}
-  .item .duebtn{display:block;text-align:left;width:100%}
-  .item .duebtn:active{opacity:.6}
+  .item .duebtn{display:block;text-align:left;width:100%;padding:6px 8px;margin:1px -8px -5px;border-radius:8px}
+  .item .duebtn:active{background:rgba(0,0,0,.07)}
   .item .actions{display:flex;gap:4px;flex-shrink:0}
   .item .actions button{width:27px;height:27px;border-radius:50%;display:flex;align-items:center;justify-content:center;
     color:var(--ink-soft)}
@@ -158,6 +168,12 @@
 </style>
 </head>
 <body data-page="capture">
+
+<div class="orientlock">
+  <div class="emoji">📱</div>
+  <b>Rotate back to portrait</b>
+  <p>Jot works best in portrait mode.</p>
+</div>
 
 <nav class="pageswitch" id="pageSwitch">
   <button class="pswbtn" data-target="capture" title="Capture">
@@ -253,13 +269,11 @@
 
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
-  function ago(iso) {
-    const diff = Date.now() - new Date(iso).getTime();
-    if (diff < 60000) return 'just now';
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-    if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
-    return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  function createdStamp(iso) {
+    const d = new Date(iso);
+    const dateStr = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const timeStr = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    return `${dateStr} · ${timeStr}`;
   }
 
   function escapeHtml(s) {
@@ -420,10 +434,10 @@
 
   function metaHtml(i) {
     if (i.type === 'reminder') {
-      const label = i.dueAt ? `🔔 ${window.JotEngine.formatDue(i.dueAt)}` : `${ago(i.createdAt)} · 🔔 add time`;
+      const label = i.dueAt ? `🔔 ${window.JotEngine.formatDue(i.dueAt)}` : `${createdStamp(i.createdAt)} · 🔔 add time`;
       return `<button class="meta duebtn" data-id="${i.id}">${label}</button>`;
     }
-    return `<div class="meta">${ago(i.createdAt)}</div>`;
+    return `<div class="meta">${createdStamp(i.createdAt)}</div>`;
   }
 
   function itemHtml(i) {
@@ -665,23 +679,31 @@
       const dx = e.clientX - swipeState.startX;
       const dy = e.clientY - swipeState.startY;
       if (!swipeState.engaged) {
-        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
-        if (Math.abs(dy) > Math.abs(dx)) { swipeState = null; return; }
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        // Bias toward vertical scroll unless the drag is clearly horizontal —
+        // an ambiguous diagonal thumb angle should scroll the list, not
+        // half-open the delete swipe underneath it.
+        if (Math.abs(dy) > Math.abs(dx) * 0.85) { swipeState = null; return; }
         swipeState.engaged = true;
+        el.style.willChange = 'transform';
       }
+      // Once committed to a horizontal swipe, stop the list from also
+      // scrolling under the same gesture.
+      e.preventDefault();
       const base = swipeState.wasOpen ? -84 : 0;
       swipeState.dx = Math.min(0, Math.max(-84, base + dx));
       el.style.transform = `translateX(${swipeState.dx}px)`;
-    });
+    }, { passive: false });
     const end = (e) => {
       if (!swipeState || swipeState.id !== id) return;
       const s = swipeState;
       swipeState = null;
-      el.style.transition = 'transform .2s';
+      el.style.willChange = '';
+      el.style.transition = 'transform .25s cubic-bezier(.22,1,.36,1)';
       if (!s.engaged) {
         const dx = Math.abs((e.clientX || 0) - s.startX);
         const dy = Math.abs((e.clientY || 0) - s.startY);
-        if (dx < 6 && dy < 6) {
+        if (dx < 8 && dy < 8) {
           if (s.wasOpen) { el.style.transform = 'translateX(0)'; swipeOpenId = null; }
           else startEdit(id);
         }
