@@ -192,6 +192,8 @@
           <span class="dot ${on ? (status.state === 'error' ? 'err' : 'on') : ''}"></span>
           <span id="jotSyncStatusText">${on ? `Sync is on · last synced ${ago(status.lastSync)}` : 'Sync is off'}</span>
         </div>
+        <p style="font-size:11px;opacity:.6;margin:6px 0 0">Build ${window.__BUILD__ || '?'}</p>
+        <div id="jotDiag" style="display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;font-size:10.5px;color:var(--ink-soft);opacity:.7;margin-top:6px;padding-top:6px;border-top:1px dashed var(--line);font-family:monospace"></div>
         <div class="modal-actions">
           ${on
             ? `<button class="btn ghost" id="jotSyncOff">Turn off</button><button class="btn primary" id="jotSyncNow">Sync now</button>`
@@ -199,6 +201,21 @@
         </div>
       </div>`;
     document.body.appendChild(bg);
+
+    if (typeof window.__recalcDiag__ === 'function') window.__recalcDiag__();
+    setTimeout(() => {
+      const d = window.__DIAG__;
+      const diagEl = bg.querySelector('#jotDiag');
+      if (d && diagEl) {
+        diagEl.innerHTML = `
+          <span>standalone: ${String(d.standalone)}</span>
+          <span>innerHeight: ${d.innerHeight}</span>
+          <span>vv height: ${d.vvHeight}</span>
+          <span>dpr: ${d.dpr}</span>
+          <span>safe-top: ${d.safeTop}</span>
+          <span>safe-bottom: ${d.safeBottom}</span>`;
+      }
+    }, 60);
 
     const close = () => bg.remove();
     bg.addEventListener('click', (e) => { if (e.target === bg) close(); });

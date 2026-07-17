@@ -10,6 +10,56 @@
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icons/icon-192.png">
 <title>Jot</title>
+<script>
+  // Build stamp + on-device diagnostics — see ~/Claude/dock-issue/PWA-DOCK-BUG.md
+  // §4f. Bump window.__BUILD__ with every deploy alongside sw.js's CACHE
+  // constant. Safe-area insets are measured with a physical DOM probe
+  // (forces real layout) rather than trusted as a raw env()/CSS-custom-
+  // property value — WebKit bugs 191872/274773 document those going stale.
+  window.__BUILD__ = 'v1-diag';
+  (function () {
+    var probe = null;
+    function measureSafeArea() {
+      if (!document.body) return null;
+      if (!probe) {
+        probe = document.createElement('div');
+        probe.style.cssText = 'position:fixed;top:0;left:0;width:0;visibility:hidden;pointer-events:none;';
+        document.body.appendChild(probe);
+      }
+      probe.style.height = 'env(safe-area-inset-bottom)';
+      var bottom = probe.getBoundingClientRect().height;
+      probe.style.height = 'env(safe-area-inset-top)';
+      var top = probe.getBoundingClientRect().height;
+      document.documentElement.style.setProperty('--safe-bottom', bottom + 'px');
+      document.documentElement.style.setProperty('--safe-top', top + 'px');
+      return { top: top, bottom: bottom };
+    }
+    function recordDiag() {
+      var safe = measureSafeArea();
+      window.__DIAG__ = {
+        ts: new Date().toISOString(),
+        standalone: (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true,
+        innerHeight: window.innerHeight,
+        innerWidth: window.innerWidth,
+        vvHeight: window.visualViewport && Math.round(window.visualViewport.height),
+        safeTop: safe ? Math.round(safe.top) : null,
+        safeBottom: safe ? Math.round(safe.bottom) : null,
+        dpr: window.devicePixelRatio,
+      };
+    }
+    window.__recalcDiag__ = recordDiag;
+    recordDiag();
+    window.addEventListener('load', function () {
+      [150, 500, 1200].forEach(function (ms) { setTimeout(recordDiag, ms); });
+    });
+    window.addEventListener('resize', recordDiag);
+    window.addEventListener('orientationchange', function () { setTimeout(recordDiag, 250); });
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') recordDiag();
+    });
+    window.addEventListener('pageshow', recordDiag);
+  })();
+</script>
 <style>
   :root{
     --bg:#FFF8EC; --paper:#FFFDF8; --ink:#2A2138; --ink-soft:#8B8296; --line:#F0E4CE;
@@ -20,6 +70,18 @@
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  /* NOTE 2026-07-17: html/body pin to position:fixed;inset:0 + height:100%
+     below (an app-like "no scroll/bounce" feel is intentional here) — this
+     is the same exact-height shell pattern that turned out to still be
+     broken on at least one real iPhone in the Neil AI Hub project (WebKit
+     under-reports the standalone viewport height by a device-specific
+     fixed amount, which affects position:fixed;inset0 just as much as
+     vh/dvh). Jot has no bottom tab bar so the failure mode here would be
+     subtler (content/toast sitting a little high, not a dock fully
+     detached) and hasn't been reported as broken — do NOT rewrite this
+     architecture on principle alone. Check window.__DIAG__ (see the sync
+     panel) against the device's real logical resolution first. Full
+     writeup: ~/Claude/dock-issue/PWA-DOCK-BUG.md */
   html,body{height:100%;overflow:hidden;overscroll-behavior:none}
   .orientlock{display:none}
   @media (orientation:landscape){
@@ -44,7 +106,7 @@
   ::selection{background:var(--grad2);color:#fff}
 
   /* floating page switcher */
-  .pageswitch{position:fixed;top:calc(16px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);
+  .pageswitch{position:fixed;top:calc(16px + var(--safe-top, env(safe-area-inset-top)));left:50%;transform:translateX(-50%);
     z-index:30;display:flex;gap:2px;background:var(--paper);border:1px solid var(--line);border-radius:999px;
     padding:4px;box-shadow:0 8px 24px -8px rgba(42,33,56,.18)}
   .pswbtn{width:42px;height:38px;border-radius:999px;display:flex;align-items:center;justify-content:center;
@@ -71,7 +133,7 @@
   .sendfab svg{width:22px;height:22px}
   .hint{margin-top:34px;font-size:12px;color:var(--ink-soft);font-weight:600}
 
-  .toast{position:fixed;bottom:calc(30px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(14px);
+  .toast{position:fixed;bottom:calc(30px + var(--safe-bottom, env(safe-area-inset-bottom)));left:50%;transform:translateX(-50%) translateY(14px);
     z-index:40;display:flex;align-items:center;gap:8px;background:var(--ink);color:#fff;font-weight:700;font-size:13.5px;
     padding:11px 18px;border-radius:999px;box-shadow:0 14px 30px -10px rgba(42,33,56,.5);opacity:0;pointer-events:none;
     transition:opacity .2s,transform .2s;white-space:nowrap}
@@ -80,7 +142,7 @@
   .toast .retag{color:rgba(255,255,255,.6);font-weight:600;margin-left:4px}
 
   /* ---- log page ---- */
-  .page-log{padding-top:calc(68px + env(safe-area-inset-top))}
+  .page-log{padding-top:calc(68px + var(--safe-top, env(safe-area-inset-top)))}
   .logheader{padding:0 18px 8px;display:flex;align-items:center;gap:10px;flex-shrink:0}
   .logo{font-weight:900;font-size:20px;letter-spacing:-.5px;background:linear-gradient(120deg,var(--grad1),var(--grad2));
     -webkit-background-clip:text;background-clip:text;color:transparent}
@@ -102,7 +164,7 @@
   .chip .n{color:var(--ink-soft);font-size:11px;opacity:.7}
   .chip.on{color:var(--ink);border-color:var(--c,var(--grad2));background:var(--cbg,#fff)}
 
-  main{flex:1;overflow-y:auto;padding:0 18px calc(24px + env(safe-area-inset-bottom));display:flex;flex-direction:column;
+  main{flex:1;overflow-y:auto;padding:0 18px calc(24px + var(--safe-bottom, env(safe-area-inset-bottom)));display:flex;flex-direction:column;
     gap:10px;overscroll-behavior:contain}
   main>*{flex-shrink:0}
   .empty{color:var(--ink-soft);text-align:center;padding:60px 20px;font-size:13.5px;line-height:1.6}
@@ -145,7 +207,7 @@
   .modal-bg{position:fixed;inset:0;background:rgba(42,33,56,.35);display:flex;align-items:flex-end;justify-content:center;
     z-index:50;backdrop-filter:blur(2px)}
   .modal{width:100%;max-width:560px;background:var(--paper);border:1px solid var(--line);border-radius:22px 22px 0 0;
-    padding:20px 18px calc(22px + env(safe-area-inset-bottom));max-height:80vh;overflow-y:auto}
+    padding:20px 18px calc(22px + var(--safe-bottom, env(safe-area-inset-bottom)));max-height:80vh;overflow-y:auto}
   .modal h3{font-size:16px;margin-bottom:12px;color:var(--ink)}
   .modal p{font-size:12.5px;color:var(--ink-soft);line-height:1.55;margin-bottom:10px}
   .modal a{color:var(--idea-ink)}
