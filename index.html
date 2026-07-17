@@ -94,6 +94,7 @@
 
   main{flex:1;overflow-y:auto;padding:0 18px calc(24px + env(safe-area-inset-bottom));display:flex;flex-direction:column;
     gap:10px;overscroll-behavior:contain}
+  main>*{flex-shrink:0}
   .empty{color:var(--ink-soft);text-align:center;padding:60px 20px;font-size:13.5px;line-height:1.6}
   .empty b{color:var(--ink);display:block;font-size:16px;margin-bottom:6px;font-weight:800}
 
@@ -117,6 +118,8 @@
   .item .edittxt:focus{outline:0;border-color:var(--grad2)}
   .item .meta{font-size:11.5px;color:var(--ink-soft);margin-top:5px;font-weight:700}
   .item .due{display:inline-flex;align-items:center;gap:4px}
+  .item .duebtn{display:block;text-align:left;width:100%}
+  .item .duebtn:active{opacity:.6}
   .item .actions{display:flex;gap:4px;flex-shrink:0}
   .item .actions button{width:27px;height:27px;border-radius:50%;display:flex;align-items:center;justify-content:center;
     color:var(--ink-soft)}
@@ -292,7 +295,11 @@
     if (!it) return;
     const idx = TYPE_ORDER.indexOf(it.type);
     it.type = TYPE_ORDER[(idx + 1) % TYPE_ORDER.length];
-    if (it.type !== 'reminder') it.dueAt = null;
+    if (it.type !== 'reminder') {
+      it.dueAt = null;
+      const t = timers.get(it.id);
+      if (t) { clearTimeout(t); timers.delete(it.id); }
+    }
     save(items);
     showToast(it.type, it.dueAt);
     window.JotPush && window.JotPush.syncReminder(it);
@@ -411,6 +418,14 @@
     return order.filter((g) => byGroup[g]).map((g) => [g, byGroup[g]]);
   }
 
+  function metaHtml(i) {
+    if (i.type === 'reminder') {
+      const label = i.dueAt ? `🔔 ${window.JotEngine.formatDue(i.dueAt)}` : `${ago(i.createdAt)} · 🔔 add time`;
+      return `<button class="meta duebtn" data-id="${i.id}">${label}</button>`;
+    }
+    return `<div class="meta">${ago(i.createdAt)}</div>`;
+  }
+
   function itemHtml(i) {
     const t = TYPES[i.type];
     const editing = editingId === i.id;
@@ -423,7 +438,7 @@
           ${editing
             ? `<textarea class="edittxt" rows="1">${escapeHtml(i.text)}</textarea>`
             : `<div class="txt">${escapeHtml(i.text)}</div>`}
-          <div class="meta">${i.dueAt ? `<span class="due">🔔 ${window.JotEngine.formatDue(i.dueAt)}</span>` : ago(i.createdAt)}</div>
+          ${metaHtml(i)}
         </div>
         <div class="actions">
           ${i.type === 'reminder' ? `<button class="doneBtn" title="${i.done ? 'Mark not done' : 'Mark done'}">
@@ -452,6 +467,8 @@
       const id = el.dataset.id;
       const doneBtn = el.querySelector('.doneBtn');
       if (doneBtn) doneBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleDone(id); });
+      const dueBtn = el.querySelector('.duebtn');
+      if (dueBtn) dueBtn.addEventListener('click', (e) => { e.stopPropagation(); openDueSheet(id); });
       bindSwipe(el, id);
 
       const editEl = el.querySelector('.edittxt');
@@ -480,7 +497,15 @@
 
   function toggleDone(id) {
     const it = items.find((i) => i.id === id);
-    if (it) { it.done = !it.done; save(items); window.JotPush && window.JotPush.syncReminder(it); renderList(); }
+    if (!it) return;
+    it.done = !it.done;
+    if (it.done) {
+      const t = timers.get(id);
+      if (t) { clearTimeout(t); timers.delete(id); }
+    }
+    save(items);
+    window.JotPush && window.JotPush.syncReminder(it);
+    renderList();
   }
 
   function startEdit(id) {
@@ -568,10 +593,63 @@
     });
   }
 
+  // ---------------- Due date/time editor ----------------
+  function toLocalInputValue(iso) {
+    const d = iso ? new Date(iso) : new Date(Date.now() + 3600000);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function setItemDue(id, iso) {
+    const it = items.find((i) => i.id === id);
+    if (!it) return;
+    it.dueAt = iso;
+    it.notified = false;
+    const t = timers.get(id);
+    if (t) { clearTimeout(t); timers.delete(id); }
+    save(items);
+    if (iso) scheduleNotification(it);
+    window.JotPush && window.JotPush.syncReminder(it);
+    render();
+  }
+
+  function openDueSheet(id) {
+    const it = items.find((i) => i.id === id);
+    if (!it) return;
+    const existing = document.querySelector('.modal-bg');
+    if (existing) existing.remove();
+    const bg = document.createElement('div');
+    bg.className = 'modal-bg';
+    bg.innerHTML = `<div class="modal">
+      <div class="closebar"></div>
+      <h3>Reminder time</h3>
+      <div class="field">
+        <label>Due date &amp; time</label>
+        <input type="datetime-local" id="dueTimeInput" value="${toLocalInputValue(it.dueAt)}">
+      </div>
+      <div class="modal-actions">
+        <button class="btn ghost" data-action="cancel">Cancel</button>
+        ${it.dueAt ? `<button class="btn ghost" data-action="clear" style="color:var(--reminder-ink)">Clear</button>` : ''}
+        <button class="btn primary" data-action="save">Save</button>
+      </div>
+    </div>`;
+    document.body.appendChild(bg);
+    bg.addEventListener('click', (e) => { if (e.target === bg) bg.remove(); });
+    bg.querySelector('[data-action="cancel"]').addEventListener('click', () => bg.remove());
+    const clearBtn = bg.querySelector('[data-action="clear"]');
+    if (clearBtn) clearBtn.addEventListener('click', () => { setItemDue(id, null); bg.remove(); });
+    bg.querySelector('[data-action="save"]').addEventListener('click', () => {
+      const val = bg.querySelector('#dueTimeInput').value;
+      if (!val) return;
+      setItemDue(id, new Date(val).toISOString());
+      bg.remove();
+    });
+  }
+
   // ---------------- Swipe to delete ----------------
   function bindSwipe(el, id) {
     el.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('.actions') || e.target.closest('.edittxt')) return;
+      if (e.target.closest('.actions') || e.target.closest('.edittxt') || e.target.closest('.duebtn')) return;
       const wasOpen = swipeOpenId === id;
       if (swipeOpenId && swipeOpenId !== id) {
         const otherEl = listEl.querySelector(`.item[data-id="${swipeOpenId}"]`);
@@ -627,13 +705,32 @@
   searchEl.addEventListener('input', (e) => { query = e.target.value; renderList(); });
 
   // ---------------- Notifications ----------------
+  let deniedToastShown = false;
+  function showDeniedToast() {
+    if (deniedToastShown) return;
+    deniedToastShown = true;
+    toastEl.onclick = null;
+    toastEl.innerHTML = `<span>🔕 Notifications are blocked — enable them in Settings to get reminder alerts</span>`;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    clearTimeout(deleteToastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 4000);
+  }
+
   function notifyNow(item, missed) {
+    if (item.done || item.deletedAt) return; // stale timer fired after done/delete/retag
     const body = missed ? `Missed reminder: ${item.text}` : item.text;
-    if ('serviceWorker' in navigator && Notification.permission === 'granted') {
+    const granted = typeof Notification !== 'undefined' && Notification.permission === 'granted';
+    if ('serviceWorker' in navigator && granted) {
       navigator.serviceWorker.ready.then((reg) => reg.showNotification('Jot ⏰', { body, tag: item.id, icon: './icons/icon-192.png' })).catch(() => {});
     }
-    item.notified = true;
-    save(items);
+    // Only claim "notified" when we actually showed a local notification —
+    // otherwise this silently eats the reminder and the push backend (which
+    // checks the synced `notified` flag) never gets a chance to fire instead.
+    if (granted) {
+      item.notified = true;
+      save(items);
+    }
     window.JotPush && window.JotPush.syncReminder(item);
   }
 
@@ -641,7 +738,16 @@
     if (!item.dueAt || item.done || item.notified) return;
     const delta = new Date(item.dueAt).getTime() - Date.now();
     if (delta <= 0) { notifyNow(item, true); return; }
-    if (Notification && Notification.permission === 'default') Notification.requestPermission();
+    if (typeof Notification !== 'undefined') {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission().then((p) => {
+          if (p === 'granted') window.JotPush && window.JotPush.ensureSubscribed();
+          else if (p === 'denied') showDeniedToast();
+        });
+      } else if (Notification.permission === 'denied') {
+        showDeniedToast();
+      }
+    }
     const existing = timers.get(item.id);
     if (existing) clearTimeout(existing);
     if (delta < 2147483647) {

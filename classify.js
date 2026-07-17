@@ -37,6 +37,7 @@
 
     let hh = null;
     let mm = 0;
+    let fromBareTime24 = false;
     const tm = lower.match(/\b(\d{1,2})(?::([0-5]\d))?\s*(am|pm)\b/);
     if (tm) {
       hh = parseInt(tm[1], 10) % 12;
@@ -54,12 +55,18 @@
       hh = 18;
     } else {
       const tm24 = lower.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
-      if (tm24) { hh = parseInt(tm24[1], 10); mm = parseInt(tm24[2], 10); }
+      if (tm24) { hh = parseInt(tm24[1], 10); mm = parseInt(tm24[2], 10); fromBareTime24 = true; }
     }
 
     if (hh === null && dayOffset === null) return null;
     if (hh === null) hh = isTonight ? 20 : 9;
     if (dayOffset === null) dayOffset = 0;
+
+    // A bare "7:15" with no am/pm, in an evening-flavored sentence ("tonight",
+    // "this evening"), means PM — otherwise it silently rolls to 7:15 AM the
+    // next day, which reads as the classifier getting the reminder wrong.
+    const isEvening = isTonight || /\bthis evening\b|\bin the evening\b/.test(lower);
+    if (fromBareTime24 && isEvening && hh >= 1 && hh < 12) hh += 12;
 
     let target = new Date(now.getFullYear(), now.getMonth(), now.getDate() + dayOffset, hh, mm, 0, 0);
     if (dayOffset === 0 && target.getTime() <= now.getTime() && !/\btoday\b/.test(lower)) {

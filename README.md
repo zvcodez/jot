@@ -30,9 +30,10 @@ Two pages, switched via the floating pill at the top:
   the Reminder filter is active — Today / Tomorrow / This week / Later /
   No due date, soonest first; done reminders sink to a Done group).
   Reminders get a checkmark to mark done (strikes through). Tap an item's
-  text to edit it inline. Swipe an item left to reveal delete; tap it to
-  soft-delete (undo toast, or restore later from **Recently deleted** at
-  the bottom of the list — kept 30 days before permanent removal).
+  text to edit it inline, or a reminder's time line to change/clear its due
+  date and time. Swipe an item left to reveal delete; tap it to soft-delete
+  (undo toast, or restore later from **Recently deleted** at the bottom of
+  the list — kept 30 days before permanent removal).
 
 ### How the auto-tagging works
 
@@ -54,10 +55,13 @@ Entirely local pattern-matching, no server or API call:
 Reminders with a parsed due time request notification permission and
 schedule a local alert via the service worker. This fires reliably while
 the app is open, backgrounded, or reopened after the due time passed (you
-get a "missed reminder" catch-up alert). It will **not** fire if the app/
-browser was fully force-quit the whole time — that needs real Web Push
-(VAPID keys + a server-side scheduler), which is a deliberate follow-up,
-not built yet.
+get a "missed reminder" catch-up alert). It will also fire when the app/
+browser is fully closed, via real Web Push — see the separate
+[`jot-push`](https://github.com/zvcodez/jot-push) backend, which this repo's
+`push.js` talks to automatically once notification permission is granted.
+
+Tap a reminder's time (or "add time" if it doesn't have one yet) in the Log
+view to set or change its due date/time after the fact.
 
 Everything saves instantly to **localStorage** — works offline, no login
 needed for single-device use.

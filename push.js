@@ -30,7 +30,7 @@
   let subscribed = false;
   async function ensureSubscribed() {
     if (subscribed || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
-    if (Notification.permission !== 'granted') return;
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
     try {
       const reg = await navigator.serviceWorker.ready;
       let sub = await reg.pushManager.getSubscription();
